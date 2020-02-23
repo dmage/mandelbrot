@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<style>
+.viewport {
+    position: relative;
+}
+.viewport canvas {
+    left: 0;
+    top: 0;
+    position: absolute;
+}
+</style>
+</head>
+
+<body>
+<div class="viewport">
+    <canvas id="background" width="800" height="600"></canvas>
+    <canvas id="canvas" width="800" height="600"></canvas>
+</div>
+<script>
+const
+    background = document.getElementById("background"),
+    bctx = background.getContext("2d"),
+    canvas = document.getElementById("canvas"),
+    ctx = canvas.getContext("2d");
+
+function add(a, b) {
+    return {
+        real: a.real + b.real,
+        imag: a.imag + b.imag,
+    };
+}
+
+function mul(a, b) {
+    // (a + iA)*(b + iB) = a*b - A*B + i*(a*B + b*A)
+    return {
+        real: a.real*b.real - a.imag*b.imag,
+        imag: a.real*b.imag + b.real*a.imag,
+    };
+}
+
+function distSquare(a, b) {
+    const real = a.real - b.real, imag = a.imag - b.imag;
+    return real*real + imag*imag;
+}
+
+function near(a, b, eps) {
+    const real = a.real - b.real, imag = a.imag - b.imag;
+    if (real >= eps || real <= -eps) {
+        return false;
+    }
+    if (imag >= eps || imag <= -eps) {
+        return false;
+    }
+    return (real*real + imag*imag) < eps*eps;
+}
+
+const w=800, h=600;
+const x0 = -2.1, x1 = 1;
+const y0 = -(x1-x0)/w*h/2, y1 = -y0;
+//const x0 = -1, x1 = 0.5, y0 = -0.5, y1 = 0.5;
+//const x0 = -1.5, x1 = -0.5, y0 = 0, y1 = 0.4;
+
+function toScreen(x) {
+    /*
+     * (-2, 1) -> (0, 0)
+     * (1, -1) -> (canvas.width, canvas.height)
+     */
+    return {
+        real: (x.real - x0)/(x1 - x0)*canvas.width|0,
+        imag: (y1 - x.imag)/(y1 - y0)*canvas.height|0,
+    }
+}
+
+function fromScreen(x) {
+    return {
+        real: x.real/canvas.width*(x1 - x0) + x0,
+        imag: x.imag/canvas.height*(y0 - y1) + y1,
+    }
+}
+
+function inSet(c) {
+    let z = {real: 0, imag: 0};
+    for (let i = 0; i < 500; i++) {
+        z = add(mul(z, z), c);
+        if (z.real < -60 || z.real > 60 || z.imag < -60 || z.imag > 60) {
+            return false;
+        }
+    }
+    return -2 <= z.real && z.real <= 2;
+}
+
+function stable(period, periodObserved, seq, eps) {
+    if (periodObserved < 10) {
+        return false;
+    }
+    if (periodObserved < period) {
+        return false;
+    }
+    if (periodObserved < 2000) {
+        for (let i = 0; i < period; i++) {
+            for (let j = i + 1; j < period; j++) {
+                if (near(seq[i], seq[j], 1000*eps)) {
+                    const ds = distSquare(seq[i], seq[j]);
+                    if (ds < (50*eps)*(50*eps)) {
+                        return false;
+                    }
+                    if (periodObserved < 1000 && ds < (100*eps)*(100*eps)) {
+                        return false;
+                    }
+                    if (periodObserved < 500) {
+                        return false;
+                    }
+                }
+                /*
+                if (periodObserved == 500) {
+                    console.log(Math.sqrt(distSquare(seq[i], seq[j])), eps);
+                }
+                */
+            }
+        }
+    }
+    /*
+    if (period < 5) {
+        for (let i = 0; i < period; i++) {
+            for (let j = i + 1; j < period; j++) {
+                console.log(i, j, Math.sqrt(distSquare(seq[i], seq[j])), eps);
+            }
+        }
+    }
+    */
+    return true;
+}
+
+let debug = false;
+function inSetEx(c) {
+    const eps = 1e-4;
+    const depth = 100;
+    let prev = [];
+    let period = 0;
+    let periodObserved = 0;
+    let z = {real: 0, imag: 0};
+    for (let i = 0; i < 10000; i++) {
+        z = add(mul(z, z), c);
+        if (z.real < -60 || z.real > 60 || z.imag < -60 || z.imag > 60) {
+            return -1;
+        }
+        const prevIdx = prev.findIndex(function(x) { return near(x, z, eps); });
+        if (prevIdx == -1) {
+            period = 0;
+            periodObserved = 0;
+        } else if (prevIdx+1 == period) {
+            periodObserved++;
+            if (stable(period, periodObserved, prev, eps)) {
+                return period;
+            }
+        } else {
+            period = prevIdx + 1;
+            periodObserved = 0;
+        }
+        prev.unshift(z);
+        if (prev.length > depth) {
+            prev.pop();
+        }
+    }
+    return depth + 1;
+}
+
+const backgroundImageData = bctx.getImageData(0, 0, canvas.width, canvas.height);
+function renderBackgroundLine(data, y) {
+    for (let x = 0; x < background.width; x++) {
+        const offset = (y*background.width + x)*4;
+        //const v = inSet(fromScreen({real: x, imag: y})) ? 200 : 255;
+        let v = inSetEx(fromScreen({real: x, imag: y}));
+        if (v < 0) {
+            v = 255;
+        } else {
+            v = 200 - 10*v;
+            if (v < 0) {
+                v = 0;
+            }
+        }
+        data[offset] = v;
+        data[offset + 1] = v;
+        data[offset + 2] = v;
+        data[offset + 3] = 255;
+    }
+}
+function interactiveRenderBackground(y) {
+    let data = backgroundImageData.data;
+    renderBackgroundLine(data, y);
+    bctx.putImageData(backgroundImageData, 0, 0);
+    if (y < background.height) {
+        setTimeout(function() { interactiveRenderBackground(y+1) }, 0);
+    }
+}
+interactiveRenderBackground(0);
+
+let debugPrev = [];
+canvas.addEventListener("mousemove", function(e) {
+    const x = e.offsetX, y = e.offsetY;
+    const cScreen = {real: x, imag: y};
+    const c = fromScreen(cScreen);
+    //ctx.drawImage(background, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const eps = 1e-4;
+    const depth = 100;
+    let prev = [];
+    let period = 0;
+    let periodObserved = 0;
+    let z = {real: 0, imag: 0};
+    let zScreen = toScreen(z);
+    let stopAt = 0;
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.moveTo(zScreen.real, zScreen.imag);
+    let i;
+    for (i = 0; i < 10000; i++) {
+        z = add(mul(z, z), c);
+        if (z.real < -60 || z.real > 60 || z.imag < -60 || z.imag > 60) {
+            period = -1;
+            stopAt = 5000;
+            break;
+        }
+        const prevIdx = prev.findIndex(function(x) { return near(x, z, eps); });
+        if (prevIdx == -1) {
+            period = 0;
+            periodObserved = 0;
+        } else if (prevIdx+1 == period) {
+            periodObserved++;
+            if (stable(period, periodObserved, prev, eps)) {
+                console.log(i, `period ${period} observed ${periodObserved} times`);
+                stopAt = i + 1;
+                break;
+            }
+        } else {
+            //console.log("period reset", periodObserved, period, prevIdx + 1);
+            period = prevIdx + 1;
+            periodObserved = 0;
+        }
+        let zScreen = toScreen(z);
+        ctx.lineTo(zScreen.real, zScreen.imag);
+        prev.unshift(z);
+        if (prev.length > depth) {
+            prev.pop();
+        }
+    }
+    ctx.stroke();
+
+    if (period > 0 && stopAt > 0) {
+        ctx.strokeStyle = "rgba(255,0,0,0.5)";
+        for (let offset = 0; offset < period; offset++) {
+            z = {real: 0, imag: 0};
+            zScreen = toScreen(z);
+            ctx.beginPath();
+            let first = true;
+            for (let i = 0; i < stopAt; i++) {
+                z = add(mul(z, z), c);
+                if (i%period == offset) {
+                    zScreen = toScreen(z);
+                    if (first) {
+                        ctx.moveTo(zScreen.real, zScreen.imag);
+                        first = false;
+                    } else {
+                        ctx.lineTo(zScreen.real, zScreen.imag);
+                    }
+                }
+            }
+            ctx.stroke();
+        }
+    } else if (period == -1) {
+        ctx.strokeStyle = "rgba(0,0,255,0.3)";
+        z = {real: 0, imag: 0};
+        zScreen = toScreen(z);
+        ctx.beginPath();
+        ctx.moveTo(zScreen.real, zScreen.imag);
+        for (let i = 0; i < stopAt; i++) {
+            z = add(mul(z, z), c);
+            zScreen = toScreen(z);
+            ctx.lineTo(zScreen.real, zScreen.imag);
+        }
+        ctx.stroke();
+    } else {
+        console.log(i, period, periodObserved, prev, eps);
+        debugPrev = prev;
+    }
+});
+</script>
+</body>
+
+</html>
