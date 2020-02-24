@@ -15,6 +15,12 @@
 </head>
 
 <body>
+<div>
+    <button id="btn0">-2.1 &lt; x &lt; 2.1</button>
+    <button id="btn1">-2 &lt; x &lt; 1</button>
+    <button id="btn2">-1 &lt; x &lt; 0</button>
+    <button id="btn3">-0.6 &lt; x &lt; 0.2, y ~ 0.65</button>
+</button>
 <div class="viewport">
     <canvas id="background" width="800" height="600"></canvas>
     <canvas id="canvas" width="800" height="600"></canvas>
@@ -25,6 +31,23 @@ const
     bctx = background.getContext("2d"),
     canvas = document.getElementById("canvas"),
     ctx = canvas.getContext("2d");
+let backgroundImageData = bctx.getImageData(0, 0, background.width, background.height);
+
+document.getElementById("btn0").addEventListener("click", function() {
+    init(-2.1, 2.1, 0);
+});
+
+document.getElementById("btn1").addEventListener("click", function() {
+    init(-2, 1, 0);
+});
+
+document.getElementById("btn2").addEventListener("click", function() {
+    init(-1, 0, 0);
+});
+
+document.getElementById("btn3").addEventListener("click", function() {
+    init(-0.6, 0.2, 0.65);
+});
 
 function add(a, b) {
     return {
@@ -57,11 +80,7 @@ function near(a, b, eps) {
     return (real*real + imag*imag) < eps*eps;
 }
 
-const w=800, h=600;
-const x0 = -2.1, x1 = 1;
-const y0 = -(x1-x0)/w*h/2, y1 = -y0;
-//const x0 = -1, x1 = 0.5, y0 = -0.5, y1 = 0.5;
-//const x0 = -1.5, x1 = -0.5, y0 = 0, y1 = 0.4;
+let x0, x1, y0, y1;
 
 function toScreen(x) {
     /*
@@ -168,7 +187,7 @@ function inSetEx(c) {
     return depth + 1;
 }
 
-const backgroundImageData = bctx.getImageData(0, 0, canvas.width, canvas.height);
+let renderTimeout = null;
 function renderBackgroundLine(data, y) {
     for (let x = 0; x < background.width; x++) {
         const offset = (y*background.width + x)*4;
@@ -193,10 +212,30 @@ function interactiveRenderBackground(y) {
     renderBackgroundLine(data, y);
     bctx.putImageData(backgroundImageData, 0, 0);
     if (y < background.height) {
-        setTimeout(function() { interactiveRenderBackground(y+1) }, 0);
+        renderTimeout = setTimeout(function() { interactiveRenderBackground(y+1) }, 0);
+    } else {
+        renderTimeout = null;
     }
 }
-interactiveRenderBackground(0);
+
+function init(newx0, newx1, ycenter) {
+    if (renderTimeout !== null) {
+        clearTimeout(renderTimeout);
+    }
+    bctx.clearRect(0, 0, background.width, background.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    backgroundImageData = bctx.getImageData(0, 0, background.width, background.height);
+    const w=800, h=600;
+    x0 = newx0;
+    x1 = newx1;
+    const height = (x1-x0)/w*h;
+    y0 = ycenter - height/2;
+    y1 = ycenter + height/2;
+    console.log(y0, y1);
+    interactiveRenderBackground(0);
+}
+
+init(-2, 1, 0);
 
 let debugPrev = [];
 canvas.addEventListener("mousemove", function(e) {
@@ -218,7 +257,7 @@ canvas.addEventListener("mousemove", function(e) {
     ctx.beginPath();
     ctx.moveTo(zScreen.real, zScreen.imag);
     let i;
-    for (i = 0; i < 10000; i++) {
+    for (i = 0; i < 100000; i++) {
         z = add(mul(z, z), c);
         if (z.real < -60 || z.real > 60 || z.imag < -60 || z.imag > 60) {
             period = -1;
