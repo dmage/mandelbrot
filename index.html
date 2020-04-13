@@ -22,11 +22,22 @@
     x=<input id="xc" value="-0.5">, y=<input id="yc" value="0">, zoom=<input id="zoom" value="1">
     <button id="apply">Render</button>
     <button id="reset">Reset</button>
-</button>
+</div>
 <div class="viewport">
     <canvas id="background" width="800" height="599"></canvas>
     <canvas id="canvas" width="800" height="599"></canvas>
 </div>
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-163497675-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-163497675-1');
+</script>
+
 <script>
 "use strict";
 
@@ -437,16 +448,6 @@ function drawLine(cre, cim) {
         ctx.stroke();
     }
 }
-</script>
-
-<!-- Global site tag (gtag.js) - Google Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=UA-163497675-1"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'UA-163497675-1');
 </script>
 </body>
 
