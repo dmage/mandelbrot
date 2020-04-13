@@ -92,35 +92,8 @@ function apply() {
     const yc = +document.getElementById("yc").value;
     const zoom = +document.getElementById("zoom").value;
     const w = 3/Math.pow(2, zoom);
-    init(xc - w, xc + w, yc);
+    start(xc - w, xc + w, yc);
 }
-
-document.getElementById("apply").addEventListener("click", function() {
-    history.pushState({}, "", "#x=" + document.getElementById("xc").value + ",y=" + document.getElementById("yc").value + ",zoom=" + document.getElementById("zoom").value);
-    apply();
-});
-
-document.getElementById("reset").addEventListener("click", function() {
-    document.getElementById("xc").value = 0;
-    document.getElementById("yc").value = 0;
-    document.getElementById("zoom").value = 0;
-    history.pushState({}, "", "#x=" + document.getElementById("xc").value + ",y=" + document.getElementById("yc").value + ",zoom=" + document.getElementById("zoom").value);
-    apply();
-});
-
-canvas.addEventListener("mousemove", function(e) {
-    const x = e.offsetX - 1, y = e.offsetY - 1;
-    drawLine(fromScreenRe(x), fromScreenIm(y));
-});
-
-canvas.addEventListener("click", function(e) {
-    const x = e.offsetX, y = e.offsetY;
-    document.getElementById("xc").value = fromScreenRe(x);
-    document.getElementById("yc").value = fromScreenIm(y);
-    document.getElementById("zoom").value = +document.getElementById("zoom").value + 1;
-    history.pushState({}, "", "#x=" + document.getElementById("xc").value + ",y=" + document.getElementById("yc").value + ",zoom=" + document.getElementById("zoom").value);
-    apply();
-});
 
 function onHashChange() {
     let m = location.hash.match(/^#x=([0-9.e+-]*),y=([0-9.e+-]*),zoom=([0-9.e+-]*)$/);
@@ -136,8 +109,37 @@ function onHashChange() {
     apply();
 }
 
-window.addEventListener("hashchange", onHashChange);
-onHashChange();
+function init() {
+    document.getElementById("apply").addEventListener("click", function() {
+        history.pushState({}, "", "#x=" + document.getElementById("xc").value + ",y=" + document.getElementById("yc").value + ",zoom=" + document.getElementById("zoom").value);
+        apply();
+    });
+
+    document.getElementById("reset").addEventListener("click", function() {
+        document.getElementById("xc").value = 0;
+        document.getElementById("yc").value = 0;
+        document.getElementById("zoom").value = 0;
+        history.pushState({}, "", "#x=" + document.getElementById("xc").value + ",y=" + document.getElementById("yc").value + ",zoom=" + document.getElementById("zoom").value);
+        apply();
+    });
+
+    canvas.addEventListener("mousemove", function(e) {
+        const x = e.offsetX - 1, y = e.offsetY - 1;
+        drawLine(fromScreenRe(x), fromScreenIm(y));
+    });
+
+    canvas.addEventListener("click", function(e) {
+        const x = e.offsetX, y = e.offsetY;
+        document.getElementById("xc").value = fromScreenRe(x);
+        document.getElementById("yc").value = fromScreenIm(y);
+        document.getElementById("zoom").value = +document.getElementById("zoom").value + 1;
+        history.pushState({}, "", "#x=" + document.getElementById("xc").value + ",y=" + document.getElementById("yc").value + ",zoom=" + document.getElementById("zoom").value);
+        apply();
+    });
+
+    window.addEventListener("hashchange", onHashChange);
+    setTimeout(onHashChange, 50);
+}
 
 /*
  * toScreen(-2, 1) -> (0.5, 0.5)
@@ -330,7 +332,7 @@ function renderBackgroundDots(it) {
     }
 }
 
-function init(newx0, newx1, ycenter) {
+function start(newx0, newx1, ycenter) {
     if (renderTimeout !== null) {
         clearTimeout(renderTimeout);
     }
@@ -447,6 +449,8 @@ function drawLine(cre, cim) {
         ctx.stroke();
     }
 }
+
+window.addEventListener("load", init);
 </script>
 </body>
 
